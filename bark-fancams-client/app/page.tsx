@@ -78,9 +78,12 @@ export default function BarkBattle() {
   // Update player's peak volume
   const updateVolume = (volume: number) => {
     setPlayerVolume(volume);
-    if (volume > peakPlayerVolume) {
-      setPeakPlayerVolume(volume);
-    }
+    setPeakPlayerVolume((currentPeak) => {
+      if (volume > currentPeak) {
+        return volume;
+      }
+      return currentPeak;
+    });
   };
 
   return (
