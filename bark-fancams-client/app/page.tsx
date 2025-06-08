@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSocket } from "@/contexts/SocketContext";
 import QueueScreen from "@/components/queue-screen";
 import SetupScreen from "@/components/setup-screen";
 import GameScreen from "@/components/game-screen";
@@ -33,9 +34,60 @@ export default function BarkBattle() {
     return VIDEO_IDS[randomIndex];
   });
 
-  // Simulate opponent behavior
+  // WebSocket integration
+  const {
+    socket,
+    connectionStatus,
+    gameState: socketGameState,
+    gameData,
+    queuePosition: socketQueuePosition,
+    opponentAudioPeak,
+    joinQueue,
+    leaveQueue,
+    sendAudioPeak,
+  } = useSocket();
+
+  // Sync WebSocket game state with local UI state
   useEffect(() => {
-    if (gameState === "game") {
+    switch (socketGameState) {
+      case "disconnected":
+      case "connecting":
+        // Stay on queue screen while connecting
+        break;
+      case "connected":
+        setGameState("queue");
+        break;
+      case "queued":
+        // Stay on queue screen but show searching state
+        break;
+      case "playing":
+        // Go to setup first, then game
+        if (gameState === "queue") {
+          setGameState("setup");
+        }
+        break;
+      case "finished":
+        setGameState("results");
+        break;
+    }
+  }, [socketGameState, gameState]);
+
+  // Handle opponent audio data from WebSocket
+  useEffect(() => {
+    if (opponentAudioPeak > 0) {
+      const opponentVolumePercent = opponentAudioPeak * 100;
+      setOpponentVolume(opponentVolumePercent);
+
+      // Update peak volume if current is higher
+      if (opponentVolumePercent > peakOpponentVolume) {
+        setPeakOpponentVolume(opponentVolumePercent);
+      }
+    }
+  }, [opponentAudioPeak, peakOpponentVolume]);
+
+  // Simulate opponent behavior (fallback when no real opponent)
+  useEffect(() => {
+    if (gameState === "game" && !opponentAudioPeak) {
       const interval = setInterval(() => {
         // Random opponent volume that occasionally spikes
         const newVolume = Math.random() * 50 + (Math.random() > 0.9 ? 40 : 0);
@@ -49,16 +101,36 @@ export default function BarkBattle() {
 
       return () => clearInterval(interval);
     }
-  }, [gameState, peakOpponentVolume]);
+  }, [gameState, peakOpponentVolume, opponentAudioPeak]);
 
   // Handle game state transitions
   const startQueue = () => {
     setGameState("queue");
-    setQueuePosition(Math.floor(Math.random() * 5) + 1);
+    // Reset game state
+    setPeakPlayerVolume(0);
+    setPeakOpponentVolume(0);
+    setPlayerVolume(0);
+    setOpponentVolume(0);
 
-    setTimeout(() => {
-      startGame(); // Use startNewGame instead of setGameState("setup")
-    }, 3000);
+    // Pick new random video
+    const randomIndex = Math.floor(Math.random() * VIDEO_IDS.length);
+    setVideoId(VIDEO_IDS[randomIndex]);
+
+    // Set random queue position for fallback
+    setQueuePosition(Math.floor(Math.random() * 5) + 1);
+  };
+
+  // Called when user clicks "Find Match" in QueueScreen
+  const handleFindMatch = () => {
+    if (connectionStatus === "connected") {
+      joinQueue();
+    } else {
+      // Fallback: simulate old behavior if not connected
+      console.log("Not connected to server, using fallback");
+      setTimeout(() => {
+        startGame();
+      }, 3000);
+    }
   };
 
   // For transitioning from setup to game (keeps existing peaks)
@@ -75,7 +147,7 @@ export default function BarkBattle() {
     setGameState("results");
   };
 
-  // Update player's peak volume
+  // Update player's volume and send to WebSocket
   const updateVolume = (volume: number) => {
     setPlayerVolume(volume);
     setPeakPlayerVolume((currentPeak) => {
@@ -84,7 +156,20 @@ export default function BarkBattle() {
       }
       return currentPeak;
     });
+
+    // Send to WebSocket server (normalize to 0-1 range)
+    if (socketGameState === "playing" && volume > 10) {
+      const normalizedPeak = volume / 100;
+      sendAudioPeak(normalizedPeak);
+    }
   };
+
+  // Calculate effective queue position and searching state
+  const effectiveQueuePosition = socketQueuePosition || queuePosition;
+  const isSearching =
+    socketGameState === "queued" ||
+    (connectionStatus !== "connected" && gameState === "queue");
+  const isMatched = socketGameState === "playing";
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-purple-900 to-black text-white">
@@ -93,14 +178,32 @@ export default function BarkBattle() {
           <h1 className="text-3xl font-bold tracking-tight">
             <span className="text-pink-500">Bark</span> Battle
           </h1>
+          {/* Connection status indicator */}
+          <div className="mt-1">
+            {connectionStatus === "connecting" && (
+              <span className="text-xs text-yellow-400">Connecting...</span>
+            )}
+            {connectionStatus === "connected" && (
+              <span className="text-xs text-green-400">• Online</span>
+            )}
+            {connectionStatus === "disconnected" && (
+              <span className="text-xs text-red-400">• Offline</span>
+            )}
+            {connectionStatus === "error" && (
+              <span className="text-xs text-red-400">Connection Error</span>
+            )}
+          </div>
         </header>
 
         <div className="flex-1 w-full">
           {gameState === "queue" && (
             <QueueScreen
-              onStartGame={startGame}
+              onStartGame={handleFindMatch}
               playersOnline={playersOnline}
-              queuePosition={queuePosition}
+              queuePosition={effectiveQueuePosition}
+              isSearching={isSearching}
+              isMatched={isMatched}
+              connectionStatus={connectionStatus}
             />
           )}
 
