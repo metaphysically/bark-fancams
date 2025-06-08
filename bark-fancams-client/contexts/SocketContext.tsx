@@ -23,27 +23,26 @@ export interface GameData {
   gameId: string;
   yourId: string;
   opponentId: string;
-  maxRounds: number;
-  roundDuration: number;
-  currentRound: number;
-}
-
-export interface RoundResult {
-  type: "roundWin" | "roundTimeout";
-  winnerId?: string;
-  round: number;
-  scores: Record<string, number>;
-  isGameOver: boolean;
-  winnerRounds?: number;
-  maxRoundsToWin?: number;
+  gameDuration: number;
+  startTime: number;
 }
 
 export interface GameEndResult {
   gameId: string;
   winner: string | null;
-  finalScores: Record<string, number>;
+  players: Record<
+    string,
+    {
+      id: string;
+      peakVolume: number;
+      lastPeak: number;
+      lastPeakTime: number;
+      totalVolume: number;
+      peakCount: number;
+    }
+  >;
   duration: number;
-  totalRounds: number;
+  reason: "timeEnd" | "disconnect";
 }
 
 export interface OpponentAudioData {
@@ -104,7 +103,6 @@ interface SocketContextType {
 
   // Event handlers (for components to override)
   onGameStart?: (data: GameData) => void;
-  onRoundResult?: (result: RoundResult) => void;
   onGameEnd?: (result: GameEndResult) => void;
   onOpponentAudioPeak?: (data: OpponentAudioData) => void;
   onChatMessage?: (message: ChatMessage) => void;
@@ -137,7 +135,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
   // Event handler refs (so components can set custom handlers)
   const [eventHandlers, setEventHandlers] = useState<{
     onGameStart?: (data: GameData) => void;
-    onRoundResult?: (result: RoundResult) => void;
     onGameEnd?: (result: GameEndResult) => void;
     onOpponentAudioPeak?: (data: OpponentAudioData) => void;
     onChatMessage?: (message: ChatMessage) => void;
@@ -221,33 +218,12 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       eventHandlers.onGameStart?.(data);
     });
 
-    newSocket.on("roundResult", (result: RoundResult) => {
-      console.log("🏆 Round result:", result);
-      eventHandlers.onRoundResult?.(result);
-
-      if (result.isGameOver) {
-        setGameState("finished");
-      }
-    });
-
     newSocket.on("gameEnd", (result: GameEndResult) => {
       console.log("🎊 Game ended:", result);
       setGameState("connected");
       setGameData(null);
       eventHandlers.onGameEnd?.(result);
     });
-
-    newSocket.on(
-      "nextRound",
-      (data: { round: number; roundStartTime: number }) => {
-        console.log("➡️ Next round:", data);
-        if (gameData) {
-          setGameData((prev) =>
-            prev ? { ...prev, currentRound: data.round } : null
-          );
-        }
-      }
-    );
 
     // Audio events
     newSocket.on("opponentAudioPeak", (data: OpponentAudioData) => {
@@ -391,7 +367,6 @@ export const withSocket = <P extends object>(
 // Custom hooks for specific game events
 export const useGameEvents = (handlers: {
   onGameStart?: (data: GameData) => void;
-  onRoundResult?: (result: RoundResult) => void;
   onGameEnd?: (result: GameEndResult) => void;
   onOpponentAudioPeak?: (data: OpponentAudioData) => void;
   onChatMessage?: (message: ChatMessage) => void;

@@ -85,6 +85,42 @@ export default function BarkBattle() {
     }
   }, [opponentAudioPeak, peakOpponentVolume]);
 
+  // Listen for game end events from WebSocket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleGameEnd = (result: any) => {
+      console.log("🎊 Game ended:", result);
+      setGameState("results");
+
+      // Update peak volumes from server data if available
+      if (result.players && gameData) {
+        const yourData = result.players[gameData.yourId];
+        const opponentData = result.players[gameData.opponentId];
+
+        if (yourData) {
+          setPeakPlayerVolume(yourData.peakVolume * 100);
+        }
+        if (opponentData) {
+          setPeakOpponentVolume(opponentData.peakVolume * 100);
+        }
+      }
+    };
+
+    const handleOpponentDisconnected = () => {
+      console.log("👋 Opponent disconnected");
+      setGameState("results");
+    };
+
+    socket.on("gameEnd", handleGameEnd);
+    socket.on("opponentDisconnected", handleOpponentDisconnected);
+
+    return () => {
+      socket.off("gameEnd", handleGameEnd);
+      socket.off("opponentDisconnected", handleOpponentDisconnected);
+    };
+  }, [socket, gameData]);
+
   // Simulate opponent behavior (fallback when no real opponent)
   useEffect(() => {
     if (gameState === "game" && !opponentAudioPeak) {
@@ -133,14 +169,17 @@ export default function BarkBattle() {
     }
   };
 
-  // For transitioning from setup to game (keeps existing peaks)
+  // For transitioning from setup to game
   const startGame = () => {
     setGameState("game");
 
-    // Simulate game ending after video duration
-    setTimeout(() => {
-      setGameState("results");
-    }, 30000);
+    // Fallback timeout only if not connected to WebSocket
+    if (connectionStatus !== "connected") {
+      setTimeout(() => {
+        setGameState("results");
+      }, 30000);
+    }
+    // If connected, server will handle game end timing
   };
 
   const showResults = () => {
