@@ -201,12 +201,6 @@ export default function BarkBattle() {
       }
       return currentPeak;
     });
-
-    // Send to WebSocket server (normalize to 0-1 range)
-    // if (socketGameState === "playing" && volume > 10) {
-    //   const normalizedPeak = volume / 100;
-    //   sendAudioPeak(normalizedPeak);
-    // }
   };
 
   // Calculate effective queue position and searching state
