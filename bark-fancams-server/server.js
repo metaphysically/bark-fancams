@@ -193,26 +193,26 @@ class AudioBattleServer {
     player2.socket.emit("setup");
 
     // Send game start events
-    // const gameStartData = {
-    //   gameId: gameId,
-    //   gameDuration: game.gameDuration,
-    //   startTime: game.startTime,
-    // };
+    const gameStartData = {
+      gameId: gameId,
+      gameDuration: game.gameDuration,
+      startTime: game.startTime,
+    };
 
-    // player1.socket.emit("setup", {
-    //   ...gameStartData,
-    //   yourId: player1.id,
-    //   opponentId: player2.id,
-    // });
+    player1.socket.emit("gameStart", {
+      ...gameStartData,
+      yourId: player1.id,
+      opponentId: player2.id,
+    });
 
-    // player2.socket.emit("setup", {
-    //   ...gameStartData,
-    //   yourId: player2.id,
-    //   opponentId: player1.id,
-    // });
+    player2.socket.emit("gameStart", {
+      ...gameStartData,
+      yourId: player2.id,
+      opponentId: player1.id,
+    });
 
     // Start game timer
-    // this.startGameTimer(gameId);
+    this.startGameTimer(gameId);
 
     // return { gameId, matched: true };
   }
@@ -445,39 +445,17 @@ io.on("connection", (socket) => {
     gameServer.setPlayerReady(socket.id);
   });
 
-  socket.on("startGame", (data) => {
-    const gameId = gameServer.playerToGame.get(socket.id);
-    if (gameId) {
-      const player1 = gameServer.activeGames.get(gameId).player1;
-      const player2 = gameServer.activeGames.get(gameId).player2;
+  // socket.on("startGame", (data) => {
+  //   const gameId = gameServer.playerToGame.get(socket.id);
+  //   if (gameId) {
+  //     const player1 = gameServer.activeGames.get(gameId).player1;
+  //     const player2 = gameServer.activeGames.get(gameId).player2;
 
-      if (player1.isReady && player2.isReady) {
-        // Send game start events
-        const gameStartData = {
-          gameId: gameId,
-          gameDuration: game.gameDuration,
-          startTime: game.startTime,
-        };
+  //     if (player1.isReady && player2.isReady) {
 
-        player1.socket.emit("gameStart", {
-          ...gameStartData,
-          yourId: player1.id,
-          opponentId: player2.id,
-        });
-
-        player2.socket.emit("gameStart", {
-          ...gameStartData,
-          yourId: player2.id,
-          opponentId: player1.id,
-        });
-
-        // Start game timer
-        this.startGameTimer(gameId);
-
-        return { gameId, matched: true };
-      }
-    }
-  });
+  //     }
+  //   }
+  // });
 
   // Handle audio peaks
   socket.on("audioPeak", (data) => {
