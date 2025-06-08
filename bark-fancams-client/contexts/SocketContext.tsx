@@ -25,6 +25,7 @@ export interface GameData {
   opponentId: string;
   gameDuration: number;
   startTime: number;
+  videoId: string;
 }
 
 export interface GameEndResult {
@@ -310,7 +311,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
   };
 
   const sendAudioPeak = (peak: number) => {
-    if (socket && gameState === "playing" && peak >= 0 && peak <= 1) {
+    if (socket) {
       socket.emit("audioPeak", { peak });
     }
   };

@@ -99,6 +99,16 @@ class AudioBattleServer {
     }
   }
 
+  setPlayerPeak(peakVolume, socket) {
+    const currentPlayer = this.socketToPlayer.get(socket.id);
+    if (currentPlayer) {
+      this.socketToPlayer.set(socket.id, {
+        ...currentPlayer,
+        peakVolume,
+      });
+    }
+  }
+
   // Queue Management
   joinQueue(socket) {
     // Remove from existing queue first
@@ -144,6 +154,17 @@ class AudioBattleServer {
       .toString(36)
       .substr(2, 6)}`;
 
+    // Video IDs extracted from the YouTube embeds
+    const VIDEO_IDS = [
+      "LDXU5K4GiG0", // First video
+      "v7LpKUBu5wE", // Second video
+      "mZUNlVqkL8o", // Third video
+      "2fGuqx3CHVQ", // Fourth video
+      "eRRQjCDdZWM", // Fifth video
+    ];
+
+    const videoId = VIDEO_IDS[Math.floor(Math.random() * VIDEO_IDS.length)];
+
     const game = {
       id: gameId,
       players: {
@@ -155,6 +176,7 @@ class AudioBattleServer {
           totalVolume: 0,
           peakCount: 0,
           isReady: false,
+          peakVolume: 0,
         },
         [player2.id]: {
           id: player2.id,
@@ -164,6 +186,7 @@ class AudioBattleServer {
           totalVolume: 0,
           peakCount: 0,
           isReady: false,
+          peakVolume: 0,
         },
       },
       status: "active",
@@ -171,6 +194,7 @@ class AudioBattleServer {
       startTime: Date.now(),
       createdAt: Date.now(),
       lastActivity: Date.now(),
+      videoId,
     };
 
     // Setup game mappings
@@ -189,14 +213,15 @@ class AudioBattleServer {
 
     console.log(`🎯 Game ${gameId} created: ${player1.id} vs ${player2.id}`);
 
-    player1.socket.emit("setup");
-    player2.socket.emit("setup");
+    // player1.socket.emit("setup");
+    // player2.socket.emit("setup");
 
     // Send game start events
     const gameStartData = {
       gameId: gameId,
       gameDuration: game.gameDuration,
       startTime: game.startTime,
+      videoId: game.videoId,
     };
 
     player1.socket.emit("gameStart", {
@@ -445,25 +470,14 @@ io.on("connection", (socket) => {
     gameServer.setPlayerReady(socket.id);
   });
 
-  // socket.on("startGame", (data) => {
-  //   const gameId = gameServer.playerToGame.get(socket.id);
-  //   if (gameId) {
-  //     const player1 = gameServer.activeGames.get(gameId).player1;
-  //     const player2 = gameServer.activeGames.get(gameId).player2;
-
-  //     if (player1.isReady && player2.isReady) {
-
-  //     }
-  //   }
-  // });
-
   // Handle audio peaks
+  // receive
   socket.on("audioPeak", (data) => {
-    try {
-      gameServer.handleAudioPeak(socket, data);
-    } catch (error) {
-      console.error("Audio peak error:", error);
-    }
+    gameServer.setPlayerPeak(data, socket.id);
+    // try {
+    //   gameServer.handleAudioPeak(socket, data);
+    // } catch (error) {
+    //   console.error("Audio peak error:", error);
   });
 
   // Ping/Pong for latency testing
@@ -475,6 +489,12 @@ io.on("connection", (socket) => {
   socket.on("getStats", () => {
     const player = gameServer.socketToPlayer.get(socket.id);
     socket.emit("playerStats", player?.stats || {});
+  });
+
+  socket.on("getOnlinePlayers", () => {
+    socket.emit("onlinePlayerCount", {
+      count: gameServer.socketToPlayer.size,
+    });
   });
 
   // Handle disconnect
