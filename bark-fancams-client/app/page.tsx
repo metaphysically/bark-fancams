@@ -44,6 +44,8 @@ export default function BarkBattle() {
     opponentAudioPeak,
     joinQueue,
     leaveQueue,
+    setReady,
+    setStartGame,
     sendAudioPeak,
   } = useSocket();
 
@@ -251,7 +253,8 @@ export default function BarkBattle() {
 
           {gameState === "setup" && (
             <SetupScreen
-              onReady={startGame}
+              onReady={setReady}
+              onStart={setStartGame}
               updateVolume={updateVolume}
               currentVolume={playerVolume}
             />

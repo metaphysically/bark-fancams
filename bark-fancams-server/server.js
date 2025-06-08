@@ -154,6 +154,7 @@ class AudioBattleServer {
           lastPeakTime: 0,
           totalVolume: 0,
           peakCount: 0,
+          isReady: false,
         },
         [player2.id]: {
           id: player2.id,
@@ -162,6 +163,7 @@ class AudioBattleServer {
           lastPeakTime: 0,
           totalVolume: 0,
           peakCount: 0,
+          isReady: false,
         },
       },
       status: "active",
@@ -441,11 +443,13 @@ io.on("connection", (socket) => {
   socket.on("setReady", (data) => {
     // set current player to be ready
     gameServer.setPlayerReady(socket.id);
+  });
 
-    const gameId = gameServer.playerToGame.get(socket.id).gameId;
+  socket.on("startGame", (data) => {
+    const gameId = gameServer.playerToGame.get(socket.id);
     if (gameId) {
-      const player1 = this.activeGames.get(gameId).player1;
-      const player2 = this.activeGames.get(gameId).player2;
+      const player1 = gameServer.activeGames.get(gameId).player1;
+      const player2 = gameServer.activeGames.get(gameId).player2;
 
       if (player1.isReady && player2.isReady) {
         // Send game start events
