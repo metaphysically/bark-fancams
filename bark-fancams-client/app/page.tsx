@@ -25,9 +25,6 @@ export default function BarkBattle() {
   const [opponentVolume, setOpponentVolume] = useState(0);
   const [peakPlayerVolume, setPeakPlayerVolume] = useState(0);
   const [peakOpponentVolume, setPeakOpponentVolume] = useState(0);
-  const [playersOnline, setPlayersOnline] = useState(
-    Math.floor(Math.random() * 50) + 20
-  );
   const [queuePosition, setQueuePosition] = useState(0);
   const [videoId, setVideoId] = useState(() => {
     const randomIndex = Math.floor(Math.random() * VIDEO_IDS.length);
@@ -238,7 +235,6 @@ export default function BarkBattle() {
           {gameState === "queue" && (
             <QueueScreen
               onStartGame={handleFindMatch}
-              playersOnline={playersOnline}
               queuePosition={effectiveQueuePosition}
               isSearching={isSearching}
               isMatched={isMatched}

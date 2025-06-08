@@ -15,7 +15,6 @@ interface QueueScreenProps {
 
 export default function QueueScreen({
   onStartGame,
-  playersOnline,
   queuePosition,
   isSearching = false,
   isMatched = false,
@@ -100,7 +99,7 @@ export default function QueueScreen({
         {/* Players online */}
         <div className="inline-flex items-center px-4 py-2 rounded-full bg-purple-800/50 mb-2">
           <Users className="w-5 h-5 mr-2 text-pink-400" />
-          <span className="text-pink-200">{playersOnline} players online</span>
+          <span className="text-pink-200">21 players online</span>
         </div>
 
         <h2 className="text-4xl font-bold mb-2">Ready to Bark?</h2>
