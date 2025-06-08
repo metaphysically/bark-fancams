@@ -229,7 +229,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
 
     newSocket.on("gameEnd", (result: GameEndResult) => {
       console.log("🎊 Game ended:", result);
-      setGameState("connected");
+      setGameState("finished");
       setGameData(null);
       eventHandlers.onGameEnd?.(result);
     });
