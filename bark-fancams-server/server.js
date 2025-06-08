@@ -99,12 +99,12 @@ class AudioBattleServer {
     }
   }
 
-  setPlayerPeak(peakVolume, socket) {
+  setPlayerPeak(peak, socket) {
     const currentPlayer = this.socketToPlayer.get(socket.id);
     if (currentPlayer) {
       this.socketToPlayer.set(socket.id, {
         ...currentPlayer,
-        peakVolume,
+        peakVolume: peak, // Store the actual peak value
       });
     }
   }
@@ -473,7 +473,7 @@ io.on("connection", (socket) => {
   // Handle audio peaks
   // receive
   socket.on("audioPeak", (data) => {
-    console.log(`server audioPeak ${data}`);
+    console.log(data);
     gameServer.setPlayerPeak(data, socket.id);
     // try {
     //   gameServer.handleAudioPeak(socket, data);

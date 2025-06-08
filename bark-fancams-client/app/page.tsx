@@ -165,7 +165,9 @@ export default function BarkBattle() {
       if (volume > currentPeak) {
         return volume;
       }
-      sendAudioPeak(currentPeak);
+      if (socketGameState === "playing") {
+        sendAudioPeak(currentPeak);
+      }
       return currentPeak;
     });
   };
