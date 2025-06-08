@@ -282,7 +282,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
 
   // Action functions
   const joinQueue = () => {
-    if (socket && gameState === "connected") {
+    if (socket) {
       console.log("📋 Joining queue...");
       socket.emit("joinQueue");
     }

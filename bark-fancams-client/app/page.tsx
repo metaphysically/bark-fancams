@@ -159,6 +159,7 @@ export default function BarkBattle() {
 
     // Set random queue position for fallback
     setQueuePosition(Math.floor(Math.random() * 5) + 1);
+    joinQueue();
   };
 
   // Called when user clicks "Find Match" in QueueScreen
