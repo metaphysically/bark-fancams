@@ -99,6 +99,7 @@ interface SocketContextType {
   joinQueue: () => void;
   leaveQueue: () => void;
   setReady: () => void;
+  setStartGame: () => void;
   sendAudioPeak: (peak: number) => void;
   sendChatMessage: (message: string) => void;
   getPlayerStats: () => void;
@@ -301,6 +302,13 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     }
   };
 
+  const setStartGame = () => {
+    if (socket) {
+      console.log("Both players ready, starting game");
+      socket.emit("startGame");
+    }
+  };
+
   const sendAudioPeak = (peak: number) => {
     if (socket && gameState === "playing" && peak >= 0 && peak <= 1) {
       socket.emit("audioPeak", { peak });
@@ -340,6 +348,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     joinQueue,
     leaveQueue,
     setReady,
+    setStartGame,
     sendAudioPeak,
     sendChatMessage,
     getPlayerStats,

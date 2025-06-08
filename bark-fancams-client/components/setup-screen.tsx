@@ -7,12 +7,14 @@ import VolumeBar from "@/components/volume-bar";
 
 interface SetupScreenProps {
   onReady: () => void;
+  onStart: () => void;
   updateVolume: (volume: number) => void;
   currentVolume: number;
 }
 
 export default function SetupScreen({
   onReady,
+  onStart,
   updateVolume,
   currentVolume,
 }: SetupScreenProps) {
@@ -94,15 +96,6 @@ export default function SetupScreen({
 
   // Handle ready state and countdown
   useEffect(() => {
-    if (isReady && !opponentReady) {
-      // Simulate opponent getting ready
-      const timer = setTimeout(() => {
-        setOpponentReady(true);
-      }, 2000);
-
-      return () => clearTimeout(timer);
-    }
-
     if (isReady && opponentReady && countdown > 0) {
       const timer = setTimeout(() => {
         setCountdown(countdown - 1);
@@ -112,12 +105,13 @@ export default function SetupScreen({
     }
 
     if (isReady && opponentReady && countdown === 0) {
-      onReady();
+      onStart();
     }
   }, [isReady, opponentReady, countdown, onReady]);
 
   const handleReady = () => {
     setIsReady(true);
+    onReady();
   };
 
   return (
