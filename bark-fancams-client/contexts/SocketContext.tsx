@@ -68,6 +68,7 @@ export type GameState =
   | "connecting"
   | "connected"
   | "queued"
+  | "setup"
   | "playing"
   | "finished";
 
@@ -97,6 +98,7 @@ interface SocketContextType {
   // Actions
   joinQueue: () => void;
   leaveQueue: () => void;
+  setReady: () => void;
   sendAudioPeak: (peak: number) => void;
   sendChatMessage: (message: string) => void;
   getPlayerStats: () => void;
@@ -120,7 +122,8 @@ interface SocketProviderProps {
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({
   children,
-  serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5173",
+  serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL ||
+    "https://46e0-4-32-66-130.ngrok-free.app/",
 }) => {
   // State
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -209,6 +212,11 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       setQueuePosition(null);
     });
 
+    newSocket.on("setup", () => {
+      console.log("Players are setting up");
+      setGameState("setup");
+    });
+
     // Game events
     newSocket.on("gameStart", (data: GameData) => {
       console.log("🎯 Game started:", data);
@@ -286,6 +294,13 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     }
   };
 
+  const setReady = () => {
+    if (socket && gameState === "queued") {
+      console.log("Play is ready");
+      socket.emit("setReady");
+    }
+  };
+
   const sendAudioPeak = (peak: number) => {
     if (socket && gameState === "playing" && peak >= 0 && peak <= 1) {
       socket.emit("audioPeak", { peak });
@@ -324,6 +339,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     // Actions
     joinQueue,
     leaveQueue,
+    setReady,
     sendAudioPeak,
     sendChatMessage,
     getPlayerStats,

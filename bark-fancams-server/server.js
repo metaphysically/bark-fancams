@@ -57,6 +57,7 @@ class AudioBattleServer {
       id: socket.id,
       socket: socket,
       joinTime: Date.now(),
+      isReady: false,
       stats: { gamesPlayed: 0, wins: 0, totalTime: 0 },
     };
 
@@ -84,6 +85,18 @@ class AudioBattleServer {
     console.log(
       `👋 Player ${socketId} disconnected. Total: ${this.getCurrentPlayerCount()}`
     );
+  }
+
+  setPlayerReady(socket) {
+    const currentPlayer = this.socketToPlayer.get(socket.id);
+    if (currentPlayer) {
+      this.socketToPlayer.set(socket.id, {
+        ...currentPlayer,
+        isReady: true,
+      });
+    } else {
+      this.addPlayer(socket);
+    }
   }
 
   // Queue Management
@@ -174,27 +187,30 @@ class AudioBattleServer {
 
     console.log(`🎯 Game ${gameId} created: ${player1.id} vs ${player2.id}`);
 
+    player1.socket.emit("setup");
+    player2.socket.emit("setup");
+
     // Send game start events
-    const gameStartData = {
-      gameId: gameId,
-      gameDuration: game.gameDuration,
-      startTime: game.startTime,
-    };
+    // const gameStartData = {
+    //   gameId: gameId,
+    //   gameDuration: game.gameDuration,
+    //   startTime: game.startTime,
+    // };
 
-    player1.socket.emit("gameStart", {
-      ...gameStartData,
-      yourId: player1.id,
-      opponentId: player2.id,
-    });
+    // player1.socket.emit("setup", {
+    //   ...gameStartData,
+    //   yourId: player1.id,
+    //   opponentId: player2.id,
+    // });
 
-    player2.socket.emit("gameStart", {
-      ...gameStartData,
-      yourId: player2.id,
-      opponentId: player1.id,
-    });
+    // player2.socket.emit("setup", {
+    //   ...gameStartData,
+    //   yourId: player2.id,
+    //   opponentId: player1.id,
+    // });
 
     // Start game timer
-    this.startGameTimer(gameId);
+    // this.startGameTimer(gameId);
 
     return { gameId, matched: true };
   }
@@ -420,6 +436,43 @@ io.on("connection", (socket) => {
   socket.on("leaveQueue", () => {
     gameServer.removeFromQueue(socket.id);
     socket.emit("queueLeft", { message: "Left queue successfully" });
+  });
+
+  socket.on("setReady", (data) => {
+    // set current player to be ready
+    gameServer.setPlayerReady(socket.id);
+
+    const gameId = gameServer.playerToGame.get(socket.id).gameId;
+    if (gameId) {
+      const player1 = this.activeGames.get(gameId).player1;
+      const player2 = this.activeGames.get(gameId).player2;
+
+      if (player1.isReady && player2.isReady) {
+        // Send game start events
+        const gameStartData = {
+          gameId: gameId,
+          gameDuration: game.gameDuration,
+          startTime: game.startTime,
+        };
+
+        player1.socket.emit("gameStart", {
+          ...gameStartData,
+          yourId: player1.id,
+          opponentId: player2.id,
+        });
+
+        player2.socket.emit("gameStart", {
+          ...gameStartData,
+          yourId: player2.id,
+          opponentId: player1.id,
+        });
+
+        // Start game timer
+        this.startGameTimer(gameId);
+
+        return { gameId, matched: true };
+      }
+    }
   });
 
   // Handle audio peaks
