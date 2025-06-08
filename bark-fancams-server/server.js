@@ -1,4 +1,4 @@
-// server.js - Main server file
+// server.js - Main server file (No Rounds Version)
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
@@ -11,7 +11,12 @@ const server = http.createServer(app);
 // Socket.io configuration with CORS
 const io = socketIo(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      /\.ngrok\.io$/,
+      /\.ngrok-free\.app$/,
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -20,7 +25,12 @@ const io = socketIo(server, {
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      /\.ngrok\.io$/,
+      /\.ngrok-free\.app$/,
+    ],
     credentials: true,
   })
 );
@@ -47,7 +57,7 @@ class AudioBattleServer {
       id: socket.id,
       socket: socket,
       joinTime: Date.now(),
-      stats: { gamesPlayed: 0, wins: 0, totalRounds: 0 },
+      stats: { gamesPlayed: 0, wins: 0, totalTime: 0 },
     };
 
     this.socketToPlayer.set(socket.id, player);
@@ -126,25 +136,24 @@ class AudioBattleServer {
       players: {
         [player1.id]: {
           id: player1.id,
-          score: 0,
+          peakVolume: 0,
           lastPeak: 0,
           lastPeakTime: 0,
-          roundsWon: 0,
+          totalVolume: 0,
+          peakCount: 0,
         },
         [player2.id]: {
           id: player2.id,
-          score: 0,
+          peakVolume: 0,
           lastPeak: 0,
           lastPeakTime: 0,
-          roundsWon: 0,
+          totalVolume: 0,
+          peakCount: 0,
         },
       },
       status: "active",
-      currentRound: 1,
-      maxRounds: 5,
-      winThreshold: 0.75,
-      roundDuration: 30000, // 30 seconds per round
-      roundStartTime: Date.now(),
+      gameDuration: 30000, // 30 seconds total
+      startTime: Date.now(),
       createdAt: Date.now(),
       lastActivity: Date.now(),
     };
@@ -168,9 +177,8 @@ class AudioBattleServer {
     // Send game start events
     const gameStartData = {
       gameId: gameId,
-      maxRounds: game.maxRounds,
-      roundDuration: game.roundDuration,
-      currentRound: game.currentRound,
+      gameDuration: game.gameDuration,
+      startTime: game.startTime,
     };
 
     player1.socket.emit("gameStart", {
@@ -185,8 +193,8 @@ class AudioBattleServer {
       opponentId: player1.id,
     });
 
-    // Start round timer
-    this.startRoundTimer(gameId);
+    // Start game timer
+    this.startGameTimer(gameId);
 
     return { gameId, matched: true };
   }
@@ -211,8 +219,17 @@ class AudioBattleServer {
 
     // Update player's peak data
     if (game.players[playerId]) {
-      game.players[playerId].lastPeak = peak;
-      game.players[playerId].lastPeakTime = now;
+      const player = game.players[playerId];
+      player.lastPeak = peak;
+      player.lastPeakTime = now;
+      player.totalVolume += peak;
+      player.peakCount++;
+
+      // Update peak volume if this is higher
+      if (peak > player.peakVolume) {
+        player.peakVolume = peak;
+      }
+
       game.lastActivity = now;
     }
 
@@ -222,134 +239,58 @@ class AudioBattleServer {
       peak: peak,
       timestamp: now,
     });
-
-    // Check for round win
-    if (peak >= game.winThreshold) {
-      this.handleRoundWin(gameId, playerId);
-    }
   }
 
-  // Round Management
-  startRoundTimer(gameId) {
+  // Game Timer
+  startGameTimer(gameId) {
     const game = this.activeGames.get(gameId);
     if (!game) return;
 
     setTimeout(() => {
-      this.handleRoundTimeout(gameId);
-    }, game.roundDuration);
-  }
-
-  handleRoundWin(gameId, winnerId) {
-    const game = this.activeGames.get(gameId);
-    if (!game || game.status !== "active") return;
-
-    // Prevent multiple wins in same round
-    if (Date.now() - game.roundStartTime < 1000) return;
-
-    game.players[winnerId].roundsWon++;
-    game.currentRound++;
-
-    const winnerRounds = game.players[winnerId].roundsWon;
-    const maxRoundsToWin = Math.ceil(game.maxRounds / 2);
-    const isGameOver = winnerRounds >= maxRoundsToWin;
-
-    const roundResult = {
-      type: "roundWin",
-      winnerId: winnerId,
-      round: game.currentRound - 1,
-      scores: this.getGameScores(game),
-      isGameOver: isGameOver,
-      winnerRounds: winnerRounds,
-      maxRoundsToWin: maxRoundsToWin,
-    };
-
-    // Broadcast round result
-    io.to(gameId).emit("roundResult", roundResult);
-
-    console.log(
-      `🏆 Round ${game.currentRound - 1} winner: ${winnerId} in game ${gameId}`
-    );
-
-    if (isGameOver) {
-      this.endGame(gameId, winnerId);
-    } else {
-      // Start next round
-      game.roundStartTime = Date.now();
-      this.startRoundTimer(gameId);
-
-      io.to(gameId).emit("nextRound", {
-        round: game.currentRound,
-        roundStartTime: game.roundStartTime,
-      });
-    }
-  }
-
-  handleRoundTimeout(gameId) {
-    const game = this.activeGames.get(gameId);
-    if (!game || game.status !== "active") return;
-
-    // Find player with highest peak in this round
-    const players = Object.values(game.players);
-    const winner = players.reduce((prev, current) =>
-      current.lastPeak > prev.lastPeak ? current : prev
-    );
-
-    if (winner.lastPeak > 0.1) {
-      // Minimum activity threshold
-      this.handleRoundWin(gameId, winner.id);
-    } else {
-      // No winner this round
-      game.currentRound++;
-
-      const roundResult = {
-        type: "roundTimeout",
-        round: game.currentRound - 1,
-        scores: this.getGameScores(game),
-        isGameOver: game.currentRound > game.maxRounds,
-      };
-
-      io.to(gameId).emit("roundResult", roundResult);
-
-      if (game.currentRound > game.maxRounds) {
-        // Game ends in tie
-        this.endGame(gameId, null);
-      } else {
-        game.roundStartTime = Date.now();
-        this.startRoundTimer(gameId);
-      }
-    }
+      this.endGame(gameId);
+    }, game.gameDuration);
   }
 
   // Game End
-  endGame(gameId, winnerId) {
+  endGame(gameId) {
     const game = this.activeGames.get(gameId);
     if (!game) return;
 
     game.status = "finished";
     game.endTime = Date.now();
-    game.duration = game.endTime - game.createdAt;
+    game.actualDuration = game.endTime - game.startTime;
+
+    // Calculate winner based on peak volume
+    const players = Object.values(game.players);
+    const winner = players.reduce((prev, current) =>
+      current.peakVolume > prev.peakVolume ? current : prev
+    );
+
+    // Check for tie
+    const winnerId =
+      players[0].peakVolume === players[1].peakVolume ? null : winner.id;
 
     // Update player stats
     if (winnerId) {
-      const winner = this.socketToPlayer.get(winnerId);
-      if (winner) {
-        winner.stats.wins++;
+      const winnerPlayer = this.socketToPlayer.get(winnerId);
+      if (winnerPlayer) {
+        winnerPlayer.stats.wins++;
       }
     }
 
     Object.keys(game.players).forEach((playerId) => {
       const player = this.socketToPlayer.get(playerId);
       if (player) {
-        player.stats.totalRounds += game.currentRound - 1;
+        player.stats.totalTime += game.actualDuration;
       }
     });
 
     const gameResult = {
       gameId: gameId,
       winner: winnerId,
-      finalScores: this.getGameScores(game),
-      duration: game.duration,
-      totalRounds: game.currentRound - 1,
+      players: game.players,
+      duration: game.actualDuration,
+      reason: "timeEnd",
     };
 
     io.to(gameId).emit("gameEnd", gameResult);
@@ -390,19 +331,22 @@ class AudioBattleServer {
       });
 
       // End game with opponent as winner
-      this.endGame(gameId, opponentId);
+      game.status = "finished";
+      game.endTime = Date.now();
+
+      const gameResult = {
+        gameId: gameId,
+        winner: opponentId,
+        players: game.players,
+        duration: game.endTime - game.startTime,
+        reason: "disconnect",
+      };
+
+      io.to(opponentId).emit("gameEnd", gameResult);
     }
   }
 
   // Utility Methods
-  getGameScores(game) {
-    const scores = {};
-    Object.values(game.players).forEach((player) => {
-      scores[player.id] = player.roundsWon;
-    });
-    return scores;
-  }
-
   getCurrentPlayerCount() {
     return this.socketToPlayer.size;
   }
@@ -498,18 +442,6 @@ io.on("connection", (socket) => {
     socket.emit("playerStats", player?.stats || {});
   });
 
-  // Chat in game (bonus feature)
-  socket.on("chatMessage", (data) => {
-    const gameId = gameServer.playerToGame.get(socket.id);
-    if (gameId && data.message && data.message.trim()) {
-      socket.to(gameId).emit("chatMessage", {
-        playerId: socket.id,
-        message: data.message.trim().substring(0, 200),
-        timestamp: Date.now(),
-      });
-    }
-  });
-
   // Handle disconnect
   socket.on("disconnect", (reason) => {
     console.log(`Player ${socket.id} disconnected: ${reason}`);
@@ -549,7 +481,7 @@ app.get("/", (req, res) => {
         </style>
     </head>
     <body>
-        <h1>🎮 Audio Battle Server</h1>
+        <h1>🎮 Audio Battle Server (No Rounds)</h1>
         <div class="status">
             <h3>✅ Server is running!</h3>
             <p>Socket.io server ready for connections</p>
@@ -571,7 +503,9 @@ app.get("/", (req, res) => {
             <li><strong>audioPeak</strong> - Send audio peak data</li>
             <li><strong>ping</strong> - Latency test</li>
         </ul>
-            </body>
+        
+        <p>Game lasts 30 seconds, winner determined by highest peak volume!</p>
+    </body>
     </html>
   `);
 });
@@ -583,6 +517,7 @@ server.listen(PORT, () => {
   console.log(`🚀 Audio Battle Server running on port ${PORT}`);
   console.log(`🌐 Socket.io server ready for connections`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🎮 Simplified game: 30 seconds, highest peak wins!`);
 });
 
 // Graceful shutdown
