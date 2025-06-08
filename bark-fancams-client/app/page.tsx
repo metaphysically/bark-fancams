@@ -78,17 +78,17 @@ export default function BarkBattle() {
   }, [socketGameState, gameState]);
 
   // Handle opponent audio data from WebSocket
-  useEffect(() => {
-    if (opponentAudioPeak > 0) {
-      const opponentVolumePercent = opponentAudioPeak * 100;
-      setOpponentVolume(opponentVolumePercent);
+  // useEffect(() => {
+  //   if (opponentAudioPeak > 0) {
+  //     const opponentVolumePercent = opponentAudioPeak * 100;
+  //     setOpponentVolume(opponentVolumePercent);
 
-      // Update peak volume if current is higher
-      if (opponentVolumePercent > peakOpponentVolume) {
-        setPeakOpponentVolume(opponentVolumePercent);
-      }
-    }
-  }, [opponentAudioPeak, peakOpponentVolume]);
+  //     // Update peak volume if current is higher
+  //     if (opponentVolumePercent > peakOpponentVolume) {
+  //       setPeakOpponentVolume(opponentVolumePercent);
+  //     }
+  //   }
+  // }, [opponentAudioPeak, peakOpponentVolume]);
 
   // Listen for game end events from WebSocket
   useEffect(() => {
@@ -106,9 +106,9 @@ export default function BarkBattle() {
         if (yourData) {
           setPeakPlayerVolume(yourData.peakVolume * 100);
         }
-        if (opponentData) {
-          setPeakOpponentVolume(opponentData.peakVolume * 100);
-        }
+        // if (opponentData) {
+        //   setPeakOpponentVolume(opponentData.peakVolume * 100);
+        // }
       }
     };
 
@@ -127,22 +127,22 @@ export default function BarkBattle() {
   }, [socket, gameData]);
 
   // Simulate opponent behavior (fallback when no real opponent)
-  useEffect(() => {
-    if (gameState === "game" && !opponentAudioPeak) {
-      const interval = setInterval(() => {
-        // Random opponent volume that occasionally spikes
-        const newVolume = Math.random() * 50 + (Math.random() > 0.9 ? 40 : 0);
-        setOpponentVolume(newVolume);
+  // useEffect(() => {
+  //   if (gameState === "game" && !opponentAudioPeak) {
+  //     const interval = setInterval(() => {
+  //       // Random opponent volume that occasionally spikes
+  //       const newVolume = Math.random() * 50 + (Math.random() > 0.9 ? 40 : 0);
+  //       setOpponentVolume(newVolume);
 
-        // Update peak volume if current is higher
-        if (newVolume > peakOpponentVolume) {
-          setPeakOpponentVolume(newVolume);
-        }
-      }, 200);
+  //       // Update peak volume if current is higher
+  //       if (newVolume > peakOpponentVolume) {
+  //         setPeakOpponentVolume(newVolume);
+  //       }
+  //     }, 200);
 
-      return () => clearInterval(interval);
-    }
-  }, [gameState, peakOpponentVolume, opponentAudioPeak]);
+  //     return () => clearInterval(interval);
+  //   }
+  // }, [gameState, peakOpponentVolume, opponentAudioPeak]);
 
   // Handle game state transitions
   const startQueue = () => {
@@ -151,7 +151,7 @@ export default function BarkBattle() {
     setPeakPlayerVolume(0);
     setPeakOpponentVolume(0);
     setPlayerVolume(0);
-    setOpponentVolume(0);
+    // setOpponentVolume(0);
 
     // Pick new random video
     const randomIndex = Math.floor(Math.random() * VIDEO_IDS.length);
