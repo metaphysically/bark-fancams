@@ -187,26 +187,29 @@ class AudioBattleServer {
 
     console.log(`🎯 Game ${gameId} created: ${player1.id} vs ${player2.id}`);
 
-    // // Send game start events
+    player1.socket.emit("setup");
+    player2.socket.emit("setup");
+
+    // Send game start events
     // const gameStartData = {
     //   gameId: gameId,
     //   gameDuration: game.gameDuration,
     //   startTime: game.startTime,
     // };
 
-    // player1.socket.emit("gameStart", {
+    // player1.socket.emit("setup", {
     //   ...gameStartData,
     //   yourId: player1.id,
     //   opponentId: player2.id,
     // });
 
-    // player2.socket.emit("gameStart", {
+    // player2.socket.emit("setup", {
     //   ...gameStartData,
     //   yourId: player2.id,
     //   opponentId: player1.id,
     // });
 
-    // // Start game timer
+    // Start game timer
     // this.startGameTimer(gameId);
 
     // return { gameId, matched: true };

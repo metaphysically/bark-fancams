@@ -60,11 +60,14 @@ export default function BarkBattle() {
       case "queued":
         // Stay on queue screen but show searching state
         break;
-      case "playing":
+      case "setup":
         // Go to setup first, then game
         if (gameState === "queue") {
           setGameState("setup");
         }
+        break;
+      case "playing":
+        setGameState("game");
         break;
       case "finished":
         setGameState("results");

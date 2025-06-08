@@ -68,6 +68,7 @@ export type GameState =
   | "connecting"
   | "connected"
   | "queued"
+  | "setup"
   | "playing"
   | "finished";
 
@@ -97,6 +98,7 @@ interface SocketContextType {
   // Actions
   joinQueue: () => void;
   leaveQueue: () => void;
+  setReady: () => void;
   sendAudioPeak: (peak: number) => void;
   sendChatMessage: (message: string) => void;
   getPlayerStats: () => void;
@@ -208,6 +210,11 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     newSocket.on("queueLeft", () => {
       setGameState("connected");
       setQueuePosition(null);
+    });
+
+    newSocket.on("setup", () => {
+      console.log("Players are setting up");
+      setGameState("setup");
     });
 
     // Game events
