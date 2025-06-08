@@ -473,6 +473,7 @@ io.on("connection", (socket) => {
   // Handle audio peaks
   // receive
   socket.on("audioPeak", (data) => {
+    console.log(`server audioPeak ${data}`);
     gameServer.setPlayerPeak(data, socket.id);
     // try {
     //   gameServer.handleAudioPeak(socket, data);

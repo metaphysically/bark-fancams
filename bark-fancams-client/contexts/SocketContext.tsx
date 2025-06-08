@@ -312,6 +312,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
 
   const sendAudioPeak = (peak: number) => {
     if (socket) {
+      console.log(`SocketContext: sending peak audio ${peak}`);
       socket.emit("audioPeak", { peak });
     }
   };

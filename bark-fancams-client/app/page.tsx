@@ -59,10 +59,11 @@ export default function BarkBattle() {
         break;
       case "playing":
         setGameState("game");
-        setTimeout(() => {
-          // send peak to server
-          sendAudioPeak(peakPlayerVolume);
-        }, 25000);
+        // setTimeout(() => {
+        //   // send peak to server
+        //   sendAudioPeak(peakPlayerVolume);
+        //   console.log(`Sending player's peak audo: ${peakPlayerVolume}`);
+        // }, 25000);
         break;
       case "finished":
         setGameState("results");
@@ -164,6 +165,7 @@ export default function BarkBattle() {
       if (volume > currentPeak) {
         return volume;
       }
+      sendAudioPeak(currentPeak);
       return currentPeak;
     });
   };
@@ -222,7 +224,7 @@ export default function BarkBattle() {
 
           {gameState === "game" && (
             <GameScreen
-              videoId={videoId}
+              videoId="v7LpKUBu5wE"
               playerVolume={playerVolume}
               opponentVolume={opponentVolume}
               updateVolume={updateVolume}
