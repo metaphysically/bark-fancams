@@ -23,27 +23,26 @@ export interface GameData {
   gameId: string;
   yourId: string;
   opponentId: string;
-  maxRounds: number;
-  roundDuration: number;
-  currentRound: number;
-}
-
-export interface RoundResult {
-  type: "roundWin" | "roundTimeout";
-  winnerId?: string;
-  round: number;
-  scores: Record<string, number>;
-  isGameOver: boolean;
-  winnerRounds?: number;
-  maxRoundsToWin?: number;
+  gameDuration: number;
+  startTime: number;
 }
 
 export interface GameEndResult {
   gameId: string;
   winner: string | null;
-  finalScores: Record<string, number>;
+  players: Record<
+    string,
+    {
+      id: string;
+      peakVolume: number;
+      lastPeak: number;
+      lastPeakTime: number;
+      totalVolume: number;
+      peakCount: number;
+    }
+  >;
   duration: number;
-  totalRounds: number;
+  reason: "timeEnd" | "disconnect";
 }
 
 export interface OpponentAudioData {
@@ -69,6 +68,7 @@ export type GameState =
   | "connecting"
   | "connected"
   | "queued"
+  | "setup"
   | "playing"
   | "finished";
 
@@ -98,13 +98,14 @@ interface SocketContextType {
   // Actions
   joinQueue: () => void;
   leaveQueue: () => void;
+  setReady: () => void;
+  setStartGame: () => void;
   sendAudioPeak: (peak: number) => void;
   sendChatMessage: (message: string) => void;
   getPlayerStats: () => void;
 
   // Event handlers (for components to override)
   onGameStart?: (data: GameData) => void;
-  onRoundResult?: (result: RoundResult) => void;
   onGameEnd?: (result: GameEndResult) => void;
   onOpponentAudioPeak?: (data: OpponentAudioData) => void;
   onChatMessage?: (message: ChatMessage) => void;
@@ -122,7 +123,8 @@ interface SocketProviderProps {
 
 export const SocketProvider: React.FC<SocketProviderProps> = ({
   children,
-  serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5173",
+  serverUrl = process.env.NEXT_PUBLIC_SOCKET_URL ||
+    "https://46e0-4-32-66-130.ngrok-free.app/",
 }) => {
   // State
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -137,7 +139,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
   // Event handler refs (so components can set custom handlers)
   const [eventHandlers, setEventHandlers] = useState<{
     onGameStart?: (data: GameData) => void;
-    onRoundResult?: (result: RoundResult) => void;
     onGameEnd?: (result: GameEndResult) => void;
     onOpponentAudioPeak?: (data: OpponentAudioData) => void;
     onChatMessage?: (message: ChatMessage) => void;
@@ -212,6 +213,11 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       setQueuePosition(null);
     });
 
+    newSocket.on("setup", () => {
+      console.log("Players are setting up");
+      setGameState("setup");
+    });
+
     // Game events
     newSocket.on("gameStart", (data: GameData) => {
       console.log("🎯 Game started:", data);
@@ -221,33 +227,12 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
       eventHandlers.onGameStart?.(data);
     });
 
-    newSocket.on("roundResult", (result: RoundResult) => {
-      console.log("🏆 Round result:", result);
-      eventHandlers.onRoundResult?.(result);
-
-      if (result.isGameOver) {
-        setGameState("finished");
-      }
-    });
-
     newSocket.on("gameEnd", (result: GameEndResult) => {
       console.log("🎊 Game ended:", result);
-      setGameState("connected");
+      setGameState("finished");
       setGameData(null);
       eventHandlers.onGameEnd?.(result);
     });
-
-    newSocket.on(
-      "nextRound",
-      (data: { round: number; roundStartTime: number }) => {
-        console.log("➡️ Next round:", data);
-        if (gameData) {
-          setGameData((prev) =>
-            prev ? { ...prev, currentRound: data.round } : null
-          );
-        }
-      }
-    );
 
     // Audio events
     newSocket.on("opponentAudioPeak", (data: OpponentAudioData) => {
@@ -310,6 +295,20 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     }
   };
 
+  const setReady = () => {
+    if (socket && gameState === "queued") {
+      console.log("Play is ready");
+      socket.emit("setReady");
+    }
+  };
+
+  const setStartGame = () => {
+    if (socket) {
+      console.log("Both players ready, starting game");
+      socket.emit("startGame");
+    }
+  };
+
   const sendAudioPeak = (peak: number) => {
     if (socket && gameState === "playing" && peak >= 0 && peak <= 1) {
       socket.emit("audioPeak", { peak });
@@ -348,6 +347,8 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({
     // Actions
     joinQueue,
     leaveQueue,
+    setReady,
+    setStartGame,
     sendAudioPeak,
     sendChatMessage,
     getPlayerStats,
@@ -391,7 +392,6 @@ export const withSocket = <P extends object>(
 // Custom hooks for specific game events
 export const useGameEvents = (handlers: {
   onGameStart?: (data: GameData) => void;
-  onRoundResult?: (result: RoundResult) => void;
   onGameEnd?: (result: GameEndResult) => void;
   onOpponentAudioPeak?: (data: OpponentAudioData) => void;
   onChatMessage?: (message: ChatMessage) => void;

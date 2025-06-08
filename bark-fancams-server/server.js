@@ -57,6 +57,7 @@ class AudioBattleServer {
       id: socket.id,
       socket: socket,
       joinTime: Date.now(),
+      isReady: false,
       stats: { gamesPlayed: 0, wins: 0, totalTime: 0 },
     };
 
@@ -84,6 +85,18 @@ class AudioBattleServer {
     console.log(
       `👋 Player ${socketId} disconnected. Total: ${this.getCurrentPlayerCount()}`
     );
+  }
+
+  setPlayerReady(socket) {
+    const currentPlayer = this.socketToPlayer.get(socket.id);
+    if (currentPlayer) {
+      this.socketToPlayer.set(socket.id, {
+        ...currentPlayer,
+        isReady: true,
+      });
+    } else {
+      this.addPlayer(socket);
+    }
   }
 
   // Queue Management
@@ -141,6 +154,7 @@ class AudioBattleServer {
           lastPeakTime: 0,
           totalVolume: 0,
           peakCount: 0,
+          isReady: false,
         },
         [player2.id]: {
           id: player2.id,
@@ -149,6 +163,7 @@ class AudioBattleServer {
           lastPeakTime: 0,
           totalVolume: 0,
           peakCount: 0,
+          isReady: false,
         },
       },
       status: "active",
@@ -174,6 +189,9 @@ class AudioBattleServer {
 
     console.log(`🎯 Game ${gameId} created: ${player1.id} vs ${player2.id}`);
 
+    player1.socket.emit("setup");
+    player2.socket.emit("setup");
+
     // Send game start events
     const gameStartData = {
       gameId: gameId,
@@ -196,7 +214,7 @@ class AudioBattleServer {
     // Start game timer
     this.startGameTimer(gameId);
 
-    return { gameId, matched: true };
+    // return { gameId, matched: true };
   }
 
   // Audio Processing
@@ -421,6 +439,23 @@ io.on("connection", (socket) => {
     gameServer.removeFromQueue(socket.id);
     socket.emit("queueLeft", { message: "Left queue successfully" });
   });
+
+  socket.on("setReady", (data) => {
+    // set current player to be ready
+    gameServer.setPlayerReady(socket.id);
+  });
+
+  // socket.on("startGame", (data) => {
+  //   const gameId = gameServer.playerToGame.get(socket.id);
+  //   if (gameId) {
+  //     const player1 = gameServer.activeGames.get(gameId).player1;
+  //     const player2 = gameServer.activeGames.get(gameId).player2;
+
+  //     if (player1.isReady && player2.isReady) {
+
+  //     }
+  //   }
+  // });
 
   // Handle audio peaks
   socket.on("audioPeak", (data) => {
